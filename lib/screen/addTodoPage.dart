@@ -1,32 +1,34 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
-import 'package:todo_crud/services/todo_services.dart';
-import '../utils/snackbar_helper.dart';
+import '../model/todo.dart';
+import '../services/todo_services.dart';
 
-class AddTodoPage extends StatefulWidget {
-  final Map? todo;
-  const AddTodoPage({super.key, this.todo});
+class AddPage extends StatefulWidget {
+  final Todo? todo;
+  const AddPage({
+    Key? key,
+    required this.todo,
+  }) : super(key: key);
 
   @override
-  State<AddTodoPage> createState() => _AddTodoPageState();
+  _AddPageState createState() => _AddPageState();
 }
 
-class _AddTodoPageState extends State<AddTodoPage> {
-  TextEditingController titleController = TextEditingController();
-  TextEditingController descriptionController = TextEditingController();
-  bool isEdit = false;
+class _AddPageState extends State<AddPage> {
+  final todoService = TodoServices();
+  final titleController = TextEditingController();
+  final contentController = TextEditingController();
+  String pageTitle = 'Add Todo';
+  String buttonText = 'Add';
 
-  //prefill data in edit todo
   @override
   void initState() {
     super.initState();
     final todo = widget.todo;
     if (todo != null) {
-      isEdit = true;
-      final title = todo['title'];
-      final description = todo['description'];
-      titleController.text = title;
-      descriptionController.text = description;
+      pageTitle = 'Edit Todo';
+      buttonText = 'Update';
+      titleController.text = todo.title;
+      contentController.text = todo.content;
     }
   }
 
@@ -34,73 +36,100 @@ class _AddTodoPageState extends State<AddTodoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdit ? 'Edit Todo' : 'AddTodo'),
+        title: Text(pageTitle),
       ),
       body: ListView(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(10),
         children: [
           TextField(
             controller: titleController,
-            decoration: InputDecoration(hintText: 'Title'),
-          ),
-          SizedBox(
-            height: 20,
+            maxLength: 16,
+            maxLines: 1,
+            decoration: const InputDecoration(
+              hintText: 'Title',
+            ),
           ),
           TextField(
-            controller: descriptionController,
-            decoration: InputDecoration(hintText: 'Description'),
-            keyboardType: TextInputType.multiline,
+            controller: contentController,
+            maxLength: 256,
+            minLines: 4,
             maxLines: 8,
-            minLines: 5,
-          ),
-          SizedBox(
-            height: 20,
+            decoration: const InputDecoration(
+              hintText: 'Content',
+            ),
           ),
           ElevatedButton(
-            onPressed: isEdit ? updateData : submitData,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(isEdit ? 'Update' : 'Submit'),
-            ),
+            onPressed: updateOrAdd,
+            child: Text(buttonText),
           )
         ],
       ),
     );
   }
 
-  // submit Updated data to the server
-  Future<void> updateData() async {
-    final todo = widget.todo;
-    if (todo == null) {
-      print('You can not call updated without todo data');
+  void updateOrAdd() {
+    if (widget.todo == null) {
+      addTodo();
+    } else {
+      updateTodo();
+    }
+  }
+
+  Future<void> addTodo() async {
+    final title = titleController.text;
+    final content = contentController.text;
+    if (title.isEmpty) {
+      const snackBar = SnackBar(content: Text('Title is required'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
       return;
     }
-    final id = todo['_id'];
-    final isSuccess = await TodoServices.updateTodo(id, body);
-    if (isSuccess) {
-      showSuccessMessage(context, message: 'Updation Success');
+    if (content.isEmpty) {
+      const snackBar = SnackBar(content: Text('Content is required'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      return;
+    }
+    final status = await todoService.addTodo(title: title, content: content);
+    if (status) {
+      titleController.text = '';
+      contentController.text = '';
+      const snackBar = SnackBar(content: Text('Todo Added Successfully'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
     } else {
-      showErrorMessage(context, message: 'Updation Failed');
+      const snackBar = SnackBar(content: Text('Something went wrong'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
     }
   }
 
-  Future<void> submitData() async {
-    //Get the data from form
-    // submit data to the server
-    final isSuccess = await TodoServices.addTodo(body);
-    //show success or fail message
-    if (isSuccess) {
-      titleController.text = '';
-      titleController.text = '';
-      showSuccessMessage(context, message: 'Creation Success');
-    } else {
-      showErrorMessage(context, message: 'Creation Failed');
-    }
-  }
-
-  Map get body {
+  Future<void> updateTodo() async {
     final title = titleController.text;
-    final description = descriptionController.text;
-    return {"title": title, "description": description, "is_completed": false};
+    final content = contentController.text;
+    if (title.isEmpty) {
+      const snackBar = SnackBar(content: Text('Title is required'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      return;
+    }
+    if (content.isEmpty) {
+      const snackBar = SnackBar(content: Text('Content is required'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      return;
+    }
+    final todo = widget.todo;
+    if (todo == null) return;
+    final id = todo.id;
+    final completed = todo.completed;
+    final status = await todoService.updateTodo(
+      id: id,
+      title: title,
+      content: content,
+      completed: completed,
+    );
+    if (status) {
+      Navigator.pop(context);
+      const snackBar = SnackBar(content: Text('Todo Update Successfully'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    } else {
+      const snackBar = SnackBar(content: Text('Something went wrong'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    }
   }
 }

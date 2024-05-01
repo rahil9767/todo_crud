@@ -1,41 +1,81 @@
-import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+import '../model/todo.dart';
 
 class TodoServices {
-  static Future<bool> deleteById(String id) async {
-    final url = 'https://api.nstack.in/v1/todos/$id';
-    final uri = Uri.parse(url);
-    final response = await http.delete(uri);
-    return response.statusCode == 200;
-  }
+  final String baseUrl = 'http://localhost:8080';
 
-  static Future<List?> fetchTodo() async {
-    final url = 'https://api.nstack.in/v1/todos?page=1&limit=10';
-    final uri = Uri.parse(url);
-    final response = await http.get(uri);
+  Future<List<Todo>?> fetchTodo() async {
+    final uri = baseUrl + '/todo';
+    final url = Uri.parse(uri);
+    final response = await http.get(url);
     if (response.statusCode == 200) {
-      final json = jsonDecode(response.body) as Map;
-      final result = json['item'] as List;
-      return result;
+      final stringResponse = response.body;
+      final jsonResponse = json.decode(stringResponse);
+      final data = jsonResponse['data'] as List<dynamic>;
+      final todos = data.map((e) => Todo.fromJson(e)).toList();
+      return todos;
     } else {
       return null;
     }
   }
 
-  static Future<bool> updateTodo(String id, Map body) async {
-    final url = 'https://api.nstack.in/v1/todos/66303556401334af6212d2c5';
-    final uri = Uri.parse(url);
-    final response = await http.put(uri,
-        body: jsonEncode(body), headers: {'Content-Type': ' application/json'});
-    return response.statusCode == 200;
+  Future<bool> addTodo({
+    required String title,
+    required String content,
+  }) async {
+    final uri = baseUrl + '/todo/create';
+    final url = Uri.parse(uri);
+    final headers = {'Content-Type': 'application/json'};
+    final body = {'title': title, 'content': content};
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: json.encode(body),
+    );
+    if (response.statusCode == 200) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
-  static Future<bool> addTodo(Map body) async {
-    final url = 'https://api.nstack.in/v1/todos/66303556401334af6212d2c5';
-    final uri = Uri.parse(url);
-    final response = await http.post(uri,
-        body: jsonEncode(body), headers: {'Content-Type': ' application/json'});
-    return response.statusCode == 201;
+  Future<bool> deleteTodo({required String id}) async {
+    final uri = baseUrl + '/todo/' + id;
+    final url = Uri.parse(uri);
+    final response = await http.delete(url);
+    if (response.statusCode == 200) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  Future<bool> updateTodo({
+    required String id,
+    required String title,
+    required String content,
+    required bool completed,
+  }) async {
+    final uri = baseUrl + '/todo/' + id;
+    final url = Uri.parse(uri);
+    final headers = {'Content-Type': 'application/json'};
+    final body = {
+      'title': title,
+      'content': content,
+      'completed': completed,
+    };
+    final response = await http.put(
+      url,
+      headers: headers,
+      body: json.encode(body),
+    );
+    if (response.statusCode == 200) {
+      return true;
+    } else {
+      return false;
+    }
   }
 }
